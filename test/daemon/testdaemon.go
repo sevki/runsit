@@ -28,6 +28,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/fatih/color"
 )
 
 var (
@@ -71,8 +73,10 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func logNoise() {
+	yellow := color.New(color.FgYellow).SprintFunc()
+	red := color.New(color.FgRed).SprintFunc()
 	for {
-		log.Printf("some log noise")
+		log.Printf("this is a %s and this is %s.\n", yellow("warning"), red("error"))
 		time.Sleep(1 * time.Second)
 	}
 }

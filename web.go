@@ -24,6 +24,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -156,11 +157,12 @@ const rootHTML = `
 		   font-size: 10pt;
 		   border: 2px solid gray;
 		   padding: 0.5em;
+		   padding-left: 5px;
 		   overflow: scroll;
 		   max-height: 25em;
 		}
 		.output div.stderr {
-		   color: #c00;
+		    box-shadow: -5px 0px 0 #FF9999;
 		}
 		.output div.system {
 		   color: #00c;
@@ -235,7 +237,7 @@ var templateHTML = map[string]string{
 	{{define "output"}}
 		<div class='output'>
 		{{range .}}
-			<div class='{{.Name}}' title='{{.T}}'>{{.Data}}</div>
+			<div class='{{.Name}}' title='{{.T}}'>{{ansiToHTML .Data}}</div>
 		{{end}}
 		</div>
 	{{end}}
@@ -245,8 +247,81 @@ var templateHTML = map[string]string{
 var templateFuncs = template.FuncMap{
 	"maybeQuote": maybeQuote,
 	"maybePre":   maybePre,
+	"ansiToHTML": ansiToHTML,
 }
 
+// Base attributes
+const (
+	Reset int = iota
+	Bold
+	Faint
+	Italic
+	Underline
+	BlinkSlow
+	BlinkRapid
+	ReverseVideo
+	Concealed
+	CrossedOut
+)
+
+// text colors
+const (
+	Black int = iota
+	Red
+	Green
+	Yellow
+	Blue
+	Magenta
+	Cyan
+	White
+)
+
+func dtoc(d int) string {
+	switch d {
+	case Black:
+		return "Black"
+	case Red:
+		return "Red"
+	case Green:
+		return "Green"
+	case Yellow:
+		return "Yellow"
+	case Blue:
+		return "Blue"
+	case Magenta:
+		return "Magenta"
+	case Cyan:
+		return "Cyan"
+	case White:
+		return "White"
+	default:
+		return "Black"
+	}
+}
+func ansiToHTML(s string) template.HTML {
+	var colorMatcher = regexp.MustCompile(`[\[]+[[\d+;*\d*]+[m]`)
+
+	r := func(s string) string {
+		if s == "[0m" {
+			return "</span>"
+		}
+		var colora int
+		if n, err := fmt.Sscanf(s, "[%dm", &colora); err != nil {
+			return err.Error()
+		} else if n == 1 {
+			if colora > 39 {
+				return fmt.Sprintf("<span style=\"background-color: %s;\">", dtoc(colora%10))
+			} else {
+				return fmt.Sprintf("<span style=\"color: %s;\">", dtoc(colora%10))
+			}
+		} else {
+			return "<span style=\"color: red; background-color: black;\">"
+		}
+
+	}
+	bs := colorMatcher.ReplaceAllStringFunc(s, r)
+	return template.HTML(bs)
+}
 func maybeQuote(s string) string {
 	if strings.Contains(s, " ") || strings.Contains(s, `"`) {
 		return fmt.Sprintf("%q", s)
