@@ -24,10 +24,13 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/revel/revel"
 )
 
 func taskList(w http.ResponseWriter, r *http.Request) {
@@ -195,6 +198,7 @@ var templateHTML = map[string]string{
 		</ul>
 		<h2>Log</h2>
 		<pre>{{.Log}}</pre>
+		<tt>{{version}} {{build}}</tt>
 	{{end}}
 `,
 	"killTask": `
@@ -233,6 +237,7 @@ var templateHTML = map[string]string{
 		   }
 		});
 		</script>
+        	<tt>{{version}} {{build}}</tt>
 	{{end}}
 	{{define "output"}}
 		<div class='output'>
@@ -248,6 +253,8 @@ var templateFuncs = template.FuncMap{
 	"maybeQuote": maybeQuote,
 	"maybePre":   maybePre,
 	"ansiToHTML": ansiToHTML,
+	"build":      build,
+	"version":    version,
 }
 
 // Base attributes
@@ -285,7 +292,7 @@ func dtoc(d int) string {
 	case Green:
 		return "Green"
 	case Yellow:
-		return "Yellow"
+		return "Orange"
 	case Blue:
 		return "Blue"
 	case Magenta:
@@ -328,7 +335,23 @@ func maybeQuote(s string) string {
 	}
 	return s
 }
+func version() string {
+	if out, err := exec.Command("git", "--git-dir="+os.Getenv("GOPATH")+"/src/github.com/sevki/runsit/.git", "describe", "--dirty", "--always").Output(); err != nil {
+		revel.ERROR.Println(err)
+		return "deadbeef"
+	} else {
+		return strings.TrimSpace(string(out))
+	}
 
+}
+func build() string {
+	if out, err := exec.Command("git", "--git-dir="+os.Getenv("GOPATH")+"/src/github.com/sevki/runsit/.git", "rev-parse", "HEAD").Output(); err != nil {
+		revel.ERROR.Println(err)
+		return "deadbeef"
+	} else {
+		return strings.TrimSpace(string(out))
+	}
+}
 func maybePre(s string) interface{} {
 	if strings.Contains(s, "\n") {
 		return template.HTML("<pre>" + html.EscapeString(s) + "</pre>")
